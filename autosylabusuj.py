@@ -241,12 +241,12 @@ def skrocRodzajZaj(rodzajZaj):
 def main(argv):
     parser = argparse.ArgumentParser(
             description="Narzędzie wspomagające analizę sylabusów w plikach PDF, "
-            "po konwersji do pliku HTML z użyciem mutool z zestawu MuPDF."
+            "po konwersji do pliku HTML z użyciem `mutool draw` z zestawu MuPDF."
         )
 
     parser.add_argument("nazwa_plik_wej", type=str, help="Nazwa pliku wejściowego.")
     parser.add_argument("-v", action="count", help="Pokaż więcej informacji podczas "
-                        "przetwarzania.", default=0)
+                        "przetwarzania (na razie słabo zaimplementowane).", default=0)
     parser.add_argument("-o", type=str, help="Nazwa pliku wyjściowego.",
                         metavar="nazwa_pliku_wyj")
     #parser.add_argument("plik_wyj", type=argparse.FileType("wt"))
