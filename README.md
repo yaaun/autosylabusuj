@@ -4,9 +4,9 @@ Narzędzie wspomagające analizę i opiniowanie sylabusów UJ przysyłanych w PD
 
 ## Cele
 Narzędzie służy do przetwarzania plików sylabusów przysyłanych w PDF do
-zaopiniowania na tabelę w CSV zawierającą wybrane inforamcje.
+zaopiniowania na tabelę w CSV zawierającą wybrane informacje.
 Taką tabelę podsumowującą można potem przetworzyć np. importując ją do
-Excela.
+arkusza kalkulacyjnego.
 
 Informacje wybrane do ekstrakcji to te, które w doświadczeniu często
 zawierają sprzeczności:
@@ -18,8 +18,17 @@ W chwili obecnej, generowana jest tabela o szerokości 26 kolumn (A-Z).
 
 
 ## Zależności
+- Python 3
 - mupdf
 - PyQuery i jego zależności
+
+
+## Stosowanie
+1. Pozyskaj plik PDF z sylabusem do przetworzenia.
+2. Użyj `mutool draw` do konwersji dokumentu na HTML: `mutool draw -o konwert.html sylabus.pdf`
+3. Wywołaj narzędzie z terminala/wiersza poleceń lub po zaimportowaniu
+i wywołaniu `main()` z odpowiednimi argumentami (lista argv).
+4. Importuj plik raportu (tabela CSV) do arkusza kalkulacyjnego w celu dalszej analizy.
 
 
 ## Ograniczenia
