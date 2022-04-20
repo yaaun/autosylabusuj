@@ -21,6 +21,15 @@ pliku PDF na HTML (testowano z MuPDF 1.16.0 i 1.19.1 z identycznym rezultatem)
 
 Spójrz na plik HTML w przeglądarce, czy wygląda pół-rozsądnie. Jeśli tak,
 prawdopodobnie można użyć tego pliku jako wejściowego do tego narzędzia.
+
+
+Uwagi dla programistów
+----------------------
+Wszystkie funkcje w tym module zaczynające się na ``pgq_`` biorą obiekt
+PyQuery reprezentujący ``<div>`` definiujący stronę w wyjściowym HTML od
+mutool draw.
+
+Poszczególne funkcje ``pgq_`` stosują różne, najczęściej *ad hoc* zdeterminowane
 """
 
 import argparse
@@ -28,6 +37,7 @@ import csv
 import html.parser
 import re
 import sys
+import warnings
 
 from pyquery import PyQuery
 
@@ -46,6 +56,14 @@ def pgq_wyciagnijNazwePrzedmiotu(pgq):
             return " ".join(linieTyt)
         else:
             linieTyt.append(elq.text())
+
+
+def pgq_wyciagnijSciezke(pgq):
+    kotwica = pgq.children("p > b") \
+        .filter(lambda i, elem: PyQuery(elem).text() == "Ścieżka").parent()
+    nastepny = kotwica.next()
+
+    return nastepny.text() # to powinna być nazwa ścieżki.
 
 
 def pgq_wyciagnijFormeWeryfikacji(pgq):
@@ -157,6 +175,10 @@ def pgq_wyciagnijWymaganiaWstep(pgq):
     return " ".join(bufor)
 
 
+def pgq_wyciagnijNumerStrony(pgq):
+
+
+
 def warzal_PyQuery(nazwa_plik_wej, verbosity=0):
     def isSylabusPage(index, div):
         return bool(PyQuery(div).children("p:first-child").text() == "Sylabusy")
@@ -168,7 +190,7 @@ def warzal_PyQuery(nazwa_plik_wej, verbosity=0):
 
     sylabusPgs = pq("div").filter(isSylabusPage)
 
-    nazwaPrzedm = None
+    nazwaPrzedm = None # Zmienna potrzebuje persystencji pomiędzy obrotami pętli po stronach.
 
     warZalicz = dict()
 
@@ -180,11 +202,25 @@ def warzal_PyQuery(nazwa_plik_wej, verbosity=0):
         if pgq.children("img"): # w oparciu o obrazek nad tytułem
             nazwaPrzedm = pgq_wyciagnijNazwePrzedmiotu(pgq)
             #print(repr(nazwaPrzedm)) # Żeby dodać cudzysłowy dla klarownosci.
+            sciezka = pgq_wyciagnijSciezke(pgq)
+
+            if sciezka != "-":
+                # Ścieżka nie została określona.
+                pass # nic nie rób
+            else:
+                # Zaprefiksuj nazwę przedmiotu ścieżką w stylu Excela, tzn.
+                # przed wykrzyknikiem: `nazwa ścieżki!nazwa przedmiotu`
+                nazwaPrzedm = sciezka + "!" + nazwaPrzedm
 
             formaWeryf = pgq_wyciagnijFormeWeryfikacji(pgq)
 
-            warZalicz[nazwaPrzedm] = {"formaWeryfikacji": formaWeryf,
+            # Sprawdź czy istnieje taki przedmiot w słowniku, aby uniknąć nadpisywania
+            if nazwaPrzedm not in warZalicz:
+                warZalicz[nazwaPrzedm] = {"formaWeryfikacji": formaWeryf,
                                       "strona": re.match("page(\\d+)", pgq.attr.id)[1]}
+            else:
+                warnings.warn(f"powtórzył się sylabus przedmiotu o tej samej nazwie "
+                              f"'{nazwaPrzedm}' ")
         elif nazwaPrzedm and pgq.children("p:contains('Rodzaj zajęć')") and \
             pgq.children("p:contains('Formy zaliczenia')") and \
             pgq.children("p:contains('Warunki zaliczenia przedmiotu')"):
