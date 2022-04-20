@@ -76,7 +76,14 @@ def cssDlwPt(cssdl):
 
 def pgq_wyciagnijWarunkiZaliczenia(pgq, kotwica, verbosity=0):
     nastepne = kotwica.nextAll()
-    pierwszyPo = PyQuery(nastepne[0])
+    pierwszyPo = None
+
+    try:
+        # Potrzebne na przypadki, kiedy cała treść przeleje się na kolejną stronę
+        # i nie ma żadnej treści na tej stronie (poza nagłówkiem)
+        pierwszyPo = PyQuery(nastepne[0])
+    except IndexError as e:
+        return [] # Pusta tabela nie powinna wyrządzać dalszych szkód przy łączeniu.
 
     # Inicjalizacja.
     leftPosPt = [ cssDlwPt(wyciagnijStyleLeft(pierwszyPo)), 0, 0 ]
