@@ -60,8 +60,8 @@ def pgq_wyciagnijNazwePrzedmiotu(pgq):
 
 def pgq_wyciagnijSciezke(pgq):
     kotwica = pgq.children("p > b") \
-        .filter(lambda i, elem: PyQuery(elem).text() == "Ścieżka").parent()
-    nastepny = kotwica.next()
+        .filter(lambda i, elem: PyQuery(elem).text() == "Ścieżka").parents()[-1]
+    nastepny = PyQuery(kotwica).next()
 
     return nastepny.text() # to powinna być nazwa ścieżki.
 
@@ -176,7 +176,7 @@ def pgq_wyciagnijWymaganiaWstep(pgq):
 
 
 def pgq_wyciagnijNumerStrony(pgq):
-
+    return re.match("page(\\d+)", pgq.attr.id)[1]
 
 
 def warzal_PyQuery(nazwa_plik_wej, verbosity=0):
@@ -203,21 +203,23 @@ def warzal_PyQuery(nazwa_plik_wej, verbosity=0):
             nazwaPrzedm = pgq_wyciagnijNazwePrzedmiotu(pgq)
             #print(repr(nazwaPrzedm)) # Żeby dodać cudzysłowy dla klarownosci.
             sciezka = pgq_wyciagnijSciezke(pgq)
+            strona = pgq_wyciagnijNumerStrony(pgq)
+
+            if verbosity >= 1:
+                print(f"Przedmiot '{nazwaPrzedm}', ścieżka '{sciezka}', strona {strona}")
 
             if sciezka != "-":
-                # Ścieżka nie została określona.
-                pass # nic nie rób
-            else:
-                # Zaprefiksuj nazwę przedmiotu ścieżką w stylu Excela, tzn.
-                # przed wykrzyknikiem: `nazwa ścieżki!nazwa przedmiotu`
-                nazwaPrzedm = sciezka + "!" + nazwaPrzedm
+                # Jeśli ścieżka jest inna niż domyślny placeholder '-', to
+                # uzupełnij nazwę przedmiotu ścieżką przez postfix
+                # w nawiasach kwadratowych.
+                nazwaPrzedm = nazwaPrzedm + f" [{sciezka}]"
 
             formaWeryf = pgq_wyciagnijFormeWeryfikacji(pgq)
 
             # Sprawdź czy istnieje taki przedmiot w słowniku, aby uniknąć nadpisywania
             if nazwaPrzedm not in warZalicz:
                 warZalicz[nazwaPrzedm] = {"formaWeryfikacji": formaWeryf,
-                                      "strona": re.match("page(\\d+)", pgq.attr.id)[1]}
+                                      "strona": strona}
             else:
                 warnings.warn(f"powtórzył się sylabus przedmiotu o tej samej nazwie "
                               f"'{nazwaPrzedm}' ")
