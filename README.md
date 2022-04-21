@@ -71,6 +71,30 @@ i wywołaniu `main()` z odpowiednimi argumentami (lista argv).
 4. Importuj plik raportu (tabela CSV) do arkusza kalkulacyjnego w celu dalszej analizy.
 
 
+## Użycie z wiersza poleceń (opcje)
+
+    usage: [-h] [-v] [-o nazwa_pliku_wyj] nazwa_plik_wej
+
+    Narzędzie wspomagające analizę sylabusów w plikach PDF, po konwersji do pliku
+    HTML z użyciem `mutool draw` z zestawu MuPDF.
+
+    positional arguments:
+      nazwa_plik_wej      Nazwa pliku wejściowego.
+
+    optional arguments:
+      -h, --help          show this help message and exit
+      -v                  Pokaż więcej informacji podczas przetwarzania (na razie
+                          słabo zaimplementowane).
+      -o nazwa_pliku_wyj  Nazwa pliku wyjściowego.
+
+Skrypt może również zostać wywołany po zaimportowaniu do innego programu, poprzez
+przekazanie do funkcji `main()` listy argumentów:
+```python
+import autosylabusuj
+
+autosylabusuj.main(["autosylabusuj", "-h", "-o", "plik_wyj.csv", "plik_wej.csv"])
+```
+
 ## Ograniczenia
 Cały skrypt polega na dokumencie HTML generowanym w wyniku
 konwersji wejściowego pliku PDF przez `mutool draw`.
@@ -83,6 +107,4 @@ wskutek licznych niewypowiedzianych założeń,
 niemniej trudno wymyślić cokolwiek lepszego, zaczynając od dokumentu PDF.
 
 - *Warunki wstępne i dodatkowe* rozbite na osobne strony mogą zostać ucięte.
-- Powtarzające się sylabusy przedmiotów, jak to może mieć miejsce w przypadku
-  osobnych ścieżek specjalizacyjnych, na tą chwilę nie są prawidłowo wykrywane
-  i skutkują nadpisywaniem przedmiotów przez późniejsze o tej samej nazwie.
+- Powtarzające się sylabusy przedmiotów mogą wywoływać problemy, ktore skrypt będzie sygnalizował. Użycie opcji `-v` może okazać się wówczas pomocne.
