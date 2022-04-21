@@ -83,6 +83,4 @@ wskutek licznych niewypowiedzianych założeń,
 niemniej trudno wymyślić cokolwiek lepszego, zaczynając od dokumentu PDF.
 
 - *Warunki wstępne i dodatkowe* rozbite na osobne strony mogą zostać ucięte.
-- Powtarzające się sylabusy przedmiotów, jak to może mieć miejsce w przypadku
-  osobnych ścieżek specjalizacyjnych, na tą chwilę nie są prawidłowo wykrywane
-  i skutkują nadpisywaniem przedmiotów przez późniejsze o tej samej nazwie.
+- Powtarzające się sylabusy przedmiotów mogą wywoływać problemy, ktore skrypt będzie sygnalizował. Użycie opcji `-v` może okazać się wówczas pomocne.
