@@ -29,7 +29,10 @@ Wszystkie funkcje w tym module zaczynające się na ``pgq_`` biorą obiekt
 PyQuery reprezentujący ``<div>`` definiujący stronę w wyjściowym HTML od
 mutool draw.
 
-Poszczególne funkcje ``pgq_`` stosują różne, najczęściej *ad hoc* zdeterminowane
+Poszczególne funkcje ``pgq_`` stosują różne, najczęściej określone *ad hoc*
+"kotwice" w dokumencie, które stanowią punkty referencyjne dla użytecznych
+informacji - zazwyczaj są to nagłówki tabel i inne stałe elementy w kartach
+opisów przedmiotów.
 """
 
 import argparse
@@ -72,10 +75,40 @@ def pgq_wyciagnijFormeWeryfikacji(pgq):
 
 
 def wyciagnijStyleLeft(pqelem):
+    """
+    Wyciągnij przesunięcie 'left' przy absolutnym pozycjonowaniu specyfikowanym
+    w atrybucie 'style'.
+
+    Parameters
+    ----------
+    pqelem : PyQuery
+        Element do analizy.
+
+    Returns
+    -------
+    leftstr : str
+        Długość w jednostkach CSS, np. '123pt'.
+
+    """
     leftstr = re.search("left\\s*:\\s*(\d+(?:pt|px|cm));?", pqelem.attr.style)[1]
     return leftstr
 
 def cssDlwPt(cssdl):
+    """
+    Zamienia jednostkę długości absolutnej w formacie CSS na liczbowę będącą
+    długością w pt (72 pt = 1 inch tzn. cal).
+
+    Parameters
+    ----------
+    cssdl : str
+        Długość absolutna dopuszczalna przez CSS, np. `
+
+    Returns
+    -------
+    float
+        Długość w pt.
+
+    """
     unitSymbMatch = re.search("[a-z]{1,2}", cssdl)
     unitSymb = unitSymbMatch[0]
     preUnitDigits = cssdl[0:unitSymbMatch.start()]
@@ -91,6 +124,8 @@ def cssDlwPt(cssdl):
         return numval / 2.54 * 72
     elif unitSymb == "in":
         return numval * 72
+    else:
+        raise ValueError(f"nieznana jednostka długości '{unitSymb}'")
 
 def pgq_wyciagnijWarunkiZaliczenia(pgq, kotwica, verbosity=0):
     nastepne = kotwica.nextAll()
