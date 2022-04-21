@@ -222,7 +222,7 @@ def warzal_PyQuery(nazwa_plik_wej, verbosity=0):
                                       "strona": strona}
             else:
                 warnings.warn(f"powtórzył się sylabus przedmiotu o tej samej nazwie "
-                              f"'{nazwaPrzedm}' ")
+                              f"'{nazwaPrzedm}'")
         elif nazwaPrzedm and pgq.children("p:contains('Rodzaj zajęć')") and \
             pgq.children("p:contains('Formy zaliczenia')") and \
             pgq.children("p:contains('Warunki zaliczenia przedmiotu')"):
@@ -251,6 +251,7 @@ def warzal_PyQuery(nazwa_plik_wej, verbosity=0):
                     warZalicz[nazwaPrzedm][skrotRodzaju + "_warunkiZal"] = warunkiZal or "<!BRAK!>"
                 else:
                     warZalicz[nazwaPrzedm]["inne uwagi"] = f"Napotkano nieznany rodzaj zajęć '{rodzajZaj}'."
+                    warnings.warn(f"Napotkano nieznany rodzaj zajęć '{rodzajZaj}' na stronie {pgq_wyciagnijNumerStrony(pgq)}")
 
         # To może być zarówno na tej samej stronie, co formy i warunki
         # zaliczenia, ale może równie dobrze wystąpić na osobnej stronie.
