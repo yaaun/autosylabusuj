@@ -36,8 +36,8 @@ opisów przedmiotów.
 """
 
 import argparse
+import configparser
 import csv
-import html.parser
 import re
 import sys
 import warnings
@@ -72,6 +72,27 @@ def pgq_wyciagnijSciezke(pgq):
 def pgq_wyciagnijFormeWeryfikacji(pgq):
     nastepnyElem = pgq.children("p:contains('Forma weryfikacji uzyskanych efekt') + p")
     return nastepnyElem.text()
+
+
+def pgq_wyciagnijSposobyGodzinyRealizacji(pgq):
+    kotwica = pgq.children("p:contains('Sposób realizacji i godziny zajęć')")
+    stoper = kotwica.nextAll().filter("p:contains('Liczba')")[0]
+    bufor = []
+
+    for elem in kotwica.nextAll():
+        pqelem = PyQuery(elem)
+        if elem == stoper: # To nie jest błąd, że tu nie ma elementu owiniętego w PyQuery.
+            break
+
+        bufor.append(pqelem.text())
+
+    bufor = " ".join(bufor)
+    sposoby_i_godziny = re.findall(r"(\w{4,40}): (\d{1,3})", bufor) # Parsing typu 'klucz: wartość'
+    # Struktura sposoby_i_godziny będzie listą 2-tupli (par).
+    return dict(sposoby_i_godziny)
+
+def str_sposobyGodzinyRealizacji(sposoby_i_godziny):
+    return ", ".join(map(lambda kv: f"{kv[0]}: {kv[1]}", sposoby_i_godziny.items()))
 
 
 def wyciagnijStyleLeft(pqelem):
@@ -126,6 +147,7 @@ def cssDlwPt(cssdl):
         return numval * 72
     else:
         raise ValueError(f"nieznana jednostka długości '{unitSymb}'")
+
 
 def pgq_wyciagnijWarunkiZaliczenia(pgq, kotwica, verbosity=0):
     nastepne = kotwica.nextAll()
@@ -211,7 +233,7 @@ def pgq_wyciagnijWymaganiaWstep(pgq):
 
 
 def pgq_wyciagnijNumerStrony(pgq):
-    return re.match("page(\\d+)", pgq.attr.id)[1]
+    return int(re.match("page(\\d+)", pgq.attr.id)[1])
 
 
 def warzal_PyQuery(nazwa_plik_wej, verbosity=0):
@@ -226,7 +248,7 @@ def warzal_PyQuery(nazwa_plik_wej, verbosity=0):
     sylabusPgs = pq("div").filter(isSylabusPage)
 
     nazwaPrzedm = None # Zmienna potrzebuje persystencji pomiędzy obrotami pętli po stronach.
-
+    stronaPocz = 0
     warZalicz = dict()
 
     for pg in sylabusPgs:
@@ -238,10 +260,10 @@ def warzal_PyQuery(nazwa_plik_wej, verbosity=0):
             nazwaPrzedm = pgq_wyciagnijNazwePrzedmiotu(pgq)
             #print(repr(nazwaPrzedm)) # Żeby dodać cudzysłowy dla klarownosci.
             sciezka = pgq_wyciagnijSciezke(pgq)
-            strona = pgq_wyciagnijNumerStrony(pgq)
+            stronaPocz = pgq_wyciagnijNumerStrony(pgq)
 
             if verbosity >= 1:
-                print(f"Przedmiot '{nazwaPrzedm}', ścieżka '{sciezka}', strona {strona}")
+                print(f"Przedmiot '{nazwaPrzedm}', ścieżka '{sciezka}', strona {stronaPocz}")
 
             if sciezka != "-":
                 # Jeśli ścieżka jest inna niż domyślny placeholder '-', to
@@ -250,11 +272,17 @@ def warzal_PyQuery(nazwa_plik_wej, verbosity=0):
                 nazwaPrzedm = nazwaPrzedm + f" [{sciezka}]"
 
             formaWeryf = pgq_wyciagnijFormeWeryfikacji(pgq)
+            sposobyGodziny = pgq_wyciagnijSposobyGodzinyRealizacji(pgq)
+            sposobyGodziny_str = str_sposobyGodzinyRealizacji(sposobyGodziny)
 
             # Sprawdź czy istnieje taki przedmiot w słowniku, aby uniknąć nadpisywania
             if nazwaPrzedm not in warZalicz:
+
+
                 warZalicz[nazwaPrzedm] = {"formaWeryfikacji": formaWeryf,
-                                      "strona": strona}
+                                      "strona": stronaPocz,
+                                      "sposobyRealizacji": sposobyGodziny_str,
+                                      "_sposobyRealizacji": sposobyGodziny}
             else:
                 warnings.warn(f"powtórzył się sylabus przedmiotu o tej samej nazwie "
                               f"'{nazwaPrzedm}'")
@@ -267,6 +295,15 @@ def warzal_PyQuery(nazwa_plik_wej, verbosity=0):
             # (*nie widziałem żeby występowała) na tej samej stronie, co
             # tytuł przedmiotu - zatem nie dojdzie do interferencji i wykluczania
             # się.
+
+            # Wprowadzenie ostrzeżenia na wypadek, gdyby przypadek 'if' powyżej
+            # nie chwycił kolejnego przedmiotu wystarczająco szybko.
+            sylabusDlStron = pgq_wyciagnijNumerStrony(pgq) - stronaPocz
+            if sylabusDlStron > OstrzezGdySylabusDluzszyNiz_strony:
+                warnings.warn("sylabus przedmiotu jest dłuższy niż zwykle "
+                             "(spodziewano się max {OstrzezGdySylabusDluzszyNiz_strony} "
+                             "stron, stwierdzono {sylabusDlStron}) - "
+                             "możliwe, że nastąpiła ucieczka przy czytaniu.")
 
             # Lepszą "kotwicą" jest nagłówek tabeli, ponieważ jest powtarzany
             # w przypadkach, gdy treści się "rozleją" na kolejne strony.
@@ -281,7 +318,7 @@ def warzal_PyQuery(nazwa_plik_wej, verbosity=0):
 
                 # Sprawdź, czy istnieje taka forma zajęć wśród znanych.
                 if rodzajZaj in KolumnyTabeliRaportu:
-                    warZalicz[nazwaPrzedm][rodzajZaj] = "TRUE"
+                    warZalicz[nazwaPrzedm][rodzajZaj] = TSV_PRAWDA
                     warZalicz[nazwaPrzedm][skrotRodzaju + "_formaZal"] = formaZal or "<!BRAK!>"
                     warZalicz[nazwaPrzedm][skrotRodzaju + "_warunkiZal"] = warunkiZal or "<!BRAK!>"
                 else:
@@ -298,11 +335,24 @@ def warzal_PyQuery(nazwa_plik_wej, verbosity=0):
             #print(pgq.children("p:contains('Wymagania wstępne i dodatkowe')"))
             warZalicz[nazwaPrzedm]["wymagania wstępne i dodatkowe"] = pgq_wyciagnijWymaganiaWstep(pgq)
 
+    # Sprawdzanie wewnętrznej spójności:
+    # np. sposoby realizacji vs tabela z warunkami zaliczenia
+    for nazwaPrzedm, przedmDict in warZalicz.items():
+        for sposobRealiz in przedmDict["_sposobyRealizacji"]:
+            try:
+                if not przedmDict[sposobRealiz] == TSV_PRAWDA:
+                    warnings.warn("niespójność sposobów realizacji przedmiotu z "
+                              "tabelą form zaliczenia zajęć")
+            except KeyError as e:
+                warnings.warn("niespójność sposobów realizacji przedmiotu z "
+                          "tabelą form zaliczenia zajęć w związku z nieznanym "
+                          f"typem zajęć {str(e)}")
 
     return warZalicz
 
 
 KolumnyTabeliRaportu = ["strona", "nazwa", "formaWeryfikacji",
+                        "sposobyRealizacji",
                         "wykład", "wyk_formaZal", "wyk_warunkiZal",
                         "ćwiczenia", "ćwi_formaZal", "ćwi_warunkiZal",
                         "konwersatorium", "kon_formaZal", "kon_warunkiZal",
@@ -311,12 +361,50 @@ KolumnyTabeliRaportu = ["strona", "nazwa", "formaWeryfikacji",
                         "pracownia", "pra_formaZal", "pra_warunkiZal",
                         "praktyki", "praktyki_formaZal", "praktyki_warunkiZal",
                         "wymagania wstępne i dodatkowe", "inne uwagi"]
+OstrzezGdySylabusDluzszyNiz_strony = 4
+TSV_PRAWDA = "TRUE"
 
 def skrocRodzajZaj(rodzajZaj):
     if rodzajZaj == "praktyki":
         return rodzajZaj
     else:
         return rodzajZaj[0:3]
+
+
+def warzal_formatWyjsciaTSV(warzalDict, args):
+    warzalDictRows = map(lambda kv: {"nazwa": kv[0], **kv[1]},
+                         warzalDict.items())
+
+    if not args.o:
+        args.o = args.nazwa_plik_wej + "raport.tsv"
+
+    with open(args.o, "wt", newline="", encoding="utf-8") as csvReport:
+        reportWriter = csv.DictWriter(csvReport, KolumnyTabeliRaportu,
+                                      dialect="excel-tab", extrasaction="ignore")
+        reportWriter.writeheader()
+        reportWriter.writerows(warzalDictRows)
+
+
+
+def warzal_formatWyjsciaINI(warzalDict, args):
+    confpars = configparser.ConfigParser(interpolation=None)
+    confpars.optionxform = lambda x: x
+
+    for nazwaPrzedm, przedmDict in warzalDict.items():
+        # Pierwsza pętla idzie po przedmiotach.
+        for nazwaWlasc, wartoscWlasc in przedmDict.items():
+            # Druga pętla idzie po właściwościach poszczególnych przedmiotów.
+            # Właściwości zaczynające się od podkreślenia `_` są uznawane
+            # za prywatne (do wewnętrznego użytku) dla programu i nie będą
+            # wstawiane do pliku.
+            if not nazwaWlasc.startswith("_"):
+                confpars[nazwaPrzedm][nazwaWlasc] = wartoscWlasc
+
+    if not args.o:
+        args.o = args.nazwa_plik_wej + "raport.ini"
+
+    with open(args.o, "wt", encoding="utf-8") as plikWyj:
+        confpars.write(plikWyj)
 
 
 def main(argv):
@@ -330,6 +418,14 @@ def main(argv):
                         "przetwarzania (na razie słabo zaimplementowane).", default=0)
     parser.add_argument("-o", type=str, help="Nazwa pliku wyjściowego.",
                         metavar="nazwa_pliku_wyj")
+    parser.add_argument("-f", dest="format", type=str, default="tsv",
+                        help="Format pliku wyjściowego "
+                        "(raportu) do wygenerowania. Domyślnie jest to tabela "
+                        "tekstowa TSV (tab separated values), którą można łatwo "
+                        "wkleić do arkusza kalkulacyjnego.")
+    parser.add_argument("-t", dest="tryb", type=str, default="WarZal", help=""
+                        "Tryb działania. Dopuszczalne wartości to: 'WarZal', "
+                        "domyślna wartość to 'WarZal'.")
     #parser.add_argument("plik_wyj", type=argparse.FileType("wt"))
     args = parser.parse_args(argv[1:])
 
@@ -340,21 +436,10 @@ def main(argv):
     #     warzal.feed(line)
 
     warzalDict = warzal_PyQuery(args.nazwa_plik_wej, verbosity=args.v)
-    warzalDictRows = map(lambda kv: {"nazwa": kv[0], **kv[1]},
-                         warzalDict.items())
-
-    if not args.o:
-        args.o = args.nazwa_plik_wej + ".report.csv"
-
-    with open(args.o, "wt", newline="", encoding="utf-8") as csvReport:
-        reportWriter = csv.DictWriter(csvReport, KolumnyTabeliRaportu,
-                                      dialect="excel-tab")
-        reportWriter.writeheader()
-        reportWriter.writerows(warzalDictRows)
-
-    #print(warzalDict)
-
-    #args.plik_wej.close()
+    if args.format.lower() in {"tsv", "csv"}:
+        warzal_formatWyjsciaTSV(warzalDict, args)
+    elif args.format.lower() in {"ini"}:
+        warzal_formatWyjsciaINI(warzalDict, args)
 
 if __name__ == "__main__":
     main(sys.argv)
