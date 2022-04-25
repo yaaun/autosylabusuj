@@ -324,7 +324,8 @@ def warzal_PyQuery(nazwa_plik_wej, verbosity=0):
                     warZalicz[nazwaPrzedm][skrotRodzaju + "_formaZal"] = formaZal or "<!BRAK!>"
                     warZalicz[nazwaPrzedm][skrotRodzaju + "_warunkiZal"] = warunkiZal or "<!BRAK!>"
                 else:
-                    warZalicz[nazwaPrzedm]["inne uwagi"] = f"Napotkano nieznany rodzaj zajęć '{rodzajZaj}'."
+                    warZalicz[nazwaPrzedm]["inne uwagi"] = f"Napotkano nieznany rodzaj zajęć '{rodzajZaj}'. "
+                        f"Forma zaliczenia: '{formaZal}', warunki zaliczenia: '{warunkiZal}'"
                     warnings.warn(f"Napotkano nieznany rodzaj zajęć '{rodzajZaj}' na stronie {pgq_wyciagnijNumerStrony(pgq)}")
 
         # To może być zarówno na tej samej stronie, co formy i warunki
@@ -361,6 +362,8 @@ KolumnyTabeliRaportu = ["strona", "nazwa", "formaWeryfikacji",
                         "seminarium", "sem_formaZal", "sem_warunkiZal",
                         "laboratoria", "lab_formaZal", "lab_warunkiZal",
                         "pracownia", "pra_formaZal", "pra_warunkiZal",
+                        "projekt", "proj_formaZal", "proj_warunkiZal",
+                        "warsztaty", "war_formaZal", "war_warunkiZal",
                         "praktyki", "praktyki_formaZal", "praktyki_warunkiZal",
                         "wymagania wstępne i dodatkowe", "inne uwagi"]
 OstrzezGdySylabusDluzszyNiz_strony = 4
