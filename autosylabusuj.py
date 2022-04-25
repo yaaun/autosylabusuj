@@ -324,7 +324,7 @@ def warzal_PyQuery(nazwa_plik_wej, verbosity=0):
                     warZalicz[nazwaPrzedm][skrotRodzaju + "_formaZal"] = formaZal or "<!BRAK!>"
                     warZalicz[nazwaPrzedm][skrotRodzaju + "_warunkiZal"] = warunkiZal or "<!BRAK!>"
                 else:
-                    warZalicz[nazwaPrzedm]["inne uwagi"] = f"Napotkano nieznany rodzaj zajęć '{rodzajZaj}'. "
+                    warZalicz[nazwaPrzedm]["inne uwagi"] = f"Napotkano nieznany rodzaj zajęć '{rodzajZaj}'. "\
                         f"Forma zaliczenia: '{formaZal}', warunki zaliczenia: '{warunkiZal}'"
                     warnings.warn(f"Napotkano nieznany rodzaj zajęć '{rodzajZaj}' na stronie {pgq_wyciagnijNumerStrony(pgq)}")
 
