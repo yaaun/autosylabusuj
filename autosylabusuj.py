@@ -253,6 +253,7 @@ def warzal_PyQuery(nazwa_plik_wej, verbosity=0):
 
     for pg in sylabusPgs:
         pgq = PyQuery(pg)
+        nrStrony = pgq_wyciagnijNumerStrony(pgq)
 
         # Trzeba stwierdzić, czy to jest pierwsza strona przedmiotu czy nie.
         # Jesli tak, trzeba wyciągnąć nazwę przedmiotu.
@@ -298,9 +299,10 @@ def warzal_PyQuery(nazwa_plik_wej, verbosity=0):
 
             # Wprowadzenie ostrzeżenia na wypadek, gdyby przypadek 'if' powyżej
             # nie chwycił kolejnego przedmiotu wystarczająco szybko.
-            sylabusDlStron = pgq_wyciagnijNumerStrony(pgq) - stronaPocz
+            sylabusDlStron = nrStrony - stronaPocz
             if sylabusDlStron > OstrzezGdySylabusDluzszyNiz_strony:
-                warnings.warn("sylabus przedmiotu jest dłuższy niż zwykle "
+                warnings.warn(f"sylabus przedmiotu {nazwaPrzedm} (od strony {stronaPocz}, "
+                              f"na stronie {nrStrony}) jest dłuższy niż zwykle "
                              f"(spodziewano się max {OstrzezGdySylabusDluzszyNiz_strony} "
                              f"stron, stwierdzono {sylabusDlStron}) - "
                              "możliwe, że nastąpiła ucieczka przy czytaniu.")
