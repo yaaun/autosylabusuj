@@ -301,8 +301,8 @@ def warzal_PyQuery(nazwa_plik_wej, verbosity=0):
             sylabusDlStron = pgq_wyciagnijNumerStrony(pgq) - stronaPocz
             if sylabusDlStron > OstrzezGdySylabusDluzszyNiz_strony:
                 warnings.warn("sylabus przedmiotu jest dłuższy niż zwykle "
-                             "(spodziewano się max {OstrzezGdySylabusDluzszyNiz_strony} "
-                             "stron, stwierdzono {sylabusDlStron}) - "
+                             f"(spodziewano się max {OstrzezGdySylabusDluzszyNiz_strony} "
+                             f"stron, stwierdzono {sylabusDlStron}) - "
                              "możliwe, że nastąpiła ucieczka przy czytaniu.")
 
             # Lepszą "kotwicą" jest nagłówek tabeli, ponieważ jest powtarzany
