@@ -412,6 +412,32 @@ def warzal_formatWyjsciaINI(warzalDict, args):
         confpars.write(plikWyj)
 
 
+def planform_txt(nazwaPliku, verbosity=0):
+    re_tyt = re.compile("Przedmiot Liczba\n+godzin\n+Punkty\n+ECTS\n+Forma\n+weryfikacji\n+", re.M)
+
+    pola_tyt = ["Przedmiot", "Liczba godzin", "Punkty ECTS", "Forma weryfikacji"]
+    outln = ["\t".join(pola_tyt)]
+
+    filestr = None
+
+    with open(nazwaPliku, "rt") as infile:
+        filestr = infile.read()
+
+    if linia_tyt := re_tyt.match(filestr):
+        # Wyrzuć linię tytułową.
+        tyt_end = linia_tyt.end(0)
+        filestr = filestr[tyt_end:]
+
+    # Łatwiej iść od tyłu, niż od przodu, bo ostatnia kolumna zawsze zawiera
+    # 'O' lub 'F'.
+    fileln = filestr.split("\n").reverse()
+
+    nextContd = False
+    for line in fileln:
+        if line[-1] in {"O", "F"}:
+            pass
+
+
 def main(argv):
     parser = argparse.ArgumentParser(
             description="Narzędzie wspomagające analizę sylabusów w plikach PDF, "
@@ -429,7 +455,8 @@ def main(argv):
                         "tekstowa TSV (tab separated values), którą można łatwo "
                         "wkleić do arkusza kalkulacyjnego.")
     parser.add_argument("-t", dest="tryb", type=str, default="WarZal", help=""
-                        "Tryb działania. Dopuszczalne wartości to: 'WarZal', "
+                        "Tryb działania. Dopuszczalne wartości to: {'WarZal', "
+                        "'PlanForm'} (rozmiar liter nie ma znaczenia); "
                         "domyślna wartość to 'WarZal'.")
     #parser.add_argument("plik_wyj", type=argparse.FileType("wt"))
     args = parser.parse_args(argv[1:])
@@ -440,11 +467,14 @@ def main(argv):
     #     print(lineno)
     #     warzal.feed(line)
 
-    warzalDict = warzal_PyQuery(args.nazwa_plik_wej, verbosity=args.v)
-    if args.format.lower() in {"tsv", "csv"}:
-        warzal_formatWyjsciaTSV(warzalDict, args)
-    elif args.format.lower() in {"ini"}:
-        warzal_formatWyjsciaINI(warzalDict, args)
+    if args.tryb.lower() == "warzal":
+        warzalDict = warzal_PyQuery(args.nazwa_plik_wej, verbosity=args.v)
+        if args.format.lower() in {"tsv", "csv"}:
+            warzal_formatWyjsciaTSV(warzalDict, args)
+        elif args.format.lower() in {"ini"}:
+            warzal_formatWyjsciaINI(warzalDict, args)
+    elif args.tryb.lower() == "plantab":
+        pass
 
 if __name__ == "__main__":
     main(sys.argv)
