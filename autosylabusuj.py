@@ -412,15 +412,22 @@ def warzal_formatWyjsciaINI(warzalDict, args):
         confpars.write(plikWyj)
 
 
-def planform_txt(nazwaPliku, verbosity=0):
+def _plantab_is_cont(linetxt):
+    return linetxt.startswith("ocenę") and linetxt[-1] in {"O", "F"}
+
+def plantab_copypastetxt(nazwaPliku, verbosity=0):
     re_tyt = re.compile("Przedmiot Liczba\n+godzin\n+Punkty\n+ECTS\n+Forma\n+weryfikacji\n+", re.M)
+    re_formyWer = re.compile("egzamin|zaliczenie\\sna|zaliczenie")
+    re_ECTS = re.compile(" \\d{1,2},\\d | - ")
+    re_godz = re.compile(" \\d{1,3} ")
 
     pola_tyt = ["Przedmiot", "Liczba godzin", "Punkty ECTS", "Forma weryfikacji"]
-    outln = ["\t".join(pola_tyt)]
+
+    liniePrzedmDicts = []
 
     filestr = None
 
-    with open(nazwaPliku, "rt") as infile:
+    with open(nazwaPliku, "rt", encoding="utf-8") as infile:
         filestr = infile.read()
 
     if linia_tyt := re_tyt.match(filestr):
@@ -428,14 +435,73 @@ def planform_txt(nazwaPliku, verbosity=0):
         tyt_end = linia_tyt.end(0)
         filestr = filestr[tyt_end:]
 
-    # Łatwiej iść od tyłu, niż od przodu, bo ostatnia kolumna zawsze zawiera
-    # 'O' lub 'F'.
-    fileln = filestr.split("\n").reverse()
+    # Rozbija plik na linijki.
+    fileln = filestr.split("\n")
 
-    nextContd = False
-    for line in fileln:
-        if line[-1] in {"O", "F"}:
-            pass
+    # while zamiast for, gdyż trzeba czasem przeskakiwać linijki i patrzeć do przodu +1
+    i = 0
+    while i < len(fileln):
+        line = fileln[i]
+        if _plantab_is_cont(line):
+            i += 1
+            continue
+        else:
+            line_cont = fileln[i + 1] if i < len(fileln) - 1 else ""
+
+        formaWer = None
+
+        lineDict = {
+                "Kategoria": None,
+                "Forma weryfikacji": None,
+                "Punkty ECTS": 0,
+                "Liczba godzin": 0,
+                "Przedmiot": None
+            }
+
+        lineDict["Kategoria"] = line[-1] if line[-1] in {"O", "F"} else line_cont[-1]
+        # Na linii kontynuacji już powinno się znaleźć "O" lub "F"
+        # - jesli nie ma, to gruby błąd danych wejsciowych.
+
+        if formaMatch := re_formyWer.search(line):
+            if formaMatch.group(0) == "zaliczenie na":
+                formaWer = "zaliczenie na ocenę"
+            else:
+                formaWer = formaMatch.group(0) # inne się mieszczą w jednej linijce
+            lineDict["Forma weryfikacji"] = formaWer
+
+        else:
+            raise ValueError(f"błąd danych: brak warunków zaliczenia w linii z trescią '{line}'")
+
+
+        matchECTS = re_ECTS.search(line)
+        line = line[0:matchECTS.start() + 1] # Ucinia końcówkę linijki przed kolejnymi krokami obróbki.
+        lineDict["Punkty ECTS"] = matchECTS.group(0).strip()
+
+        matchGodz = re_godz.search(line)
+        line = line[0:(matchGodz.start())]
+        lineDict["Liczba godzin"] = matchGodz.group(0).strip()
+
+        # Co pozostało to nazwa przedmiotu - są tam zbyt dziwne znaki, by
+        # to sensownie przetwarzać wyrażeniem regularnym.
+        lineDict["Przedmiot"] = line
+
+        liniePrzedmDicts.append(lineDict)
+
+        i += 1
+
+    return liniePrzedmDicts
+
+
+def plantab_formatWyjsciaTSV(liniePrzedmDicts, args):
+    NazwyKolumn = ["Przedmiot", "Liczba godzin", "Punkty ECTS", "Forma weryfikacji",
+                   "Kategoria"]
+
+    nazwaPlikuWyj = args.o or args.nazwa_plik_wej + ".plantab.tsv"
+
+    with open(nazwaPlikuWyj, "wt", encoding="utf-8", newline="") as outf:
+        writer = csv.DictWriter(outf, NazwyKolumn, dialect="excel-tab")
+        writer.writeheader()
+        writer.writerows(liniePrzedmDicts)
 
 
 def main(argv):
@@ -456,7 +522,7 @@ def main(argv):
                         "wkleić do arkusza kalkulacyjnego.")
     parser.add_argument("-t", dest="tryb", type=str, default="WarZal", help=""
                         "Tryb działania. Dopuszczalne wartości to: {'WarZal', "
-                        "'PlanForm'} (rozmiar liter nie ma znaczenia); "
+                        "'PlanTab'} (rozmiar liter nie ma znaczenia); "
                         "domyślna wartość to 'WarZal'.")
     #parser.add_argument("plik_wyj", type=argparse.FileType("wt"))
     args = parser.parse_args(argv[1:])
@@ -474,7 +540,8 @@ def main(argv):
         elif args.format.lower() in {"ini"}:
             warzal_formatWyjsciaINI(warzalDict, args)
     elif args.tryb.lower() == "plantab":
-        pass
+        liniePrzedmDicts = plantab_copypastetxt(args.nazwa_plik_wej, verbosity=args.v)
+        plantab_formatWyjsciaTSV(liniePrzedmDicts, args)
 
 if __name__ == "__main__":
     main(sys.argv)
