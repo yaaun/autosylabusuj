@@ -39,8 +39,8 @@ import argparse
 import configparser
 import csv
 import re
+import subprocess
 import sys
-import warnings
 
 from pyquery import PyQuery
 
@@ -285,7 +285,7 @@ def warzal_PyQuery(nazwa_plik_wej, verbosity=0):
                                       "sposobyRealizacji": sposobyGodziny_str,
                                       "_sposobyRealizacji": sposobyGodziny}
             else:
-                warnings.warn(f"powtórzył się sylabus przedmiotu o tej samej nazwie "
+                print(f"Uwaga: powtórzył się sylabus przedmiotu o tej samej nazwie "
                               f"'{nazwaPrzedm}'")
         elif nazwaPrzedm and pgq.children("p:contains('Rodzaj zajęć')") and \
             pgq.children("p:contains('Formy zaliczenia')") and \
@@ -301,7 +301,7 @@ def warzal_PyQuery(nazwa_plik_wej, verbosity=0):
             # nie chwycił kolejnego przedmiotu wystarczająco szybko.
             sylabusDlStron = nrStrony - stronaPocz
             if sylabusDlStron > OstrzezGdySylabusDluzszyNiz_strony:
-                warnings.warn(f"sylabus przedmiotu {nazwaPrzedm} (od strony {stronaPocz}, "
+                print(f"Uwaga: sylabus przedmiotu {nazwaPrzedm} (od strony {stronaPocz}, "
                               f"na stronie {nrStrony}) jest dłuższy niż zwykle "
                              f"(spodziewano się max {OstrzezGdySylabusDluzszyNiz_strony} "
                              f"stron, stwierdzono {sylabusDlStron}) - "
@@ -326,7 +326,7 @@ def warzal_PyQuery(nazwa_plik_wej, verbosity=0):
                 else:
                     warZalicz[nazwaPrzedm]["inne uwagi"] = f"Napotkano nieznany rodzaj zajęć '{rodzajZaj}'. "\
                         f"Forma zaliczenia: '{formaZal}', warunki zaliczenia: '{warunkiZal}'"
-                    warnings.warn(f"Napotkano nieznany rodzaj zajęć '{rodzajZaj}' na stronie {pgq_wyciagnijNumerStrony(pgq)}")
+                    print(f"Uwaga: napotkano nieznany rodzaj zajęć '{rodzajZaj}' na stronie {pgq_wyciagnijNumerStrony(pgq)}")
 
         # To może być zarówno na tej samej stronie, co formy i warunki
         # zaliczenia, ale może równie dobrze wystąpić na osobnej stronie.
@@ -344,10 +344,10 @@ def warzal_PyQuery(nazwa_plik_wej, verbosity=0):
         for sposobRealiz in przedmDict["_sposobyRealizacji"]:
             try:
                 if not przedmDict[sposobRealiz] == TSV_PRAWDA:
-                    warnings.warn("niespójność sposobów realizacji przedmiotu z "
+                    print("Uwaga: niespójność sposobów realizacji przedmiotu z "
                               "tabelą form zaliczenia zajęć")
             except KeyError as e:
-                warnings.warn("niespójność sposobów realizacji przedmiotu z "
+                print("Uwaga: niespójność sposobów realizacji przedmiotu z "
                           "tabelą form zaliczenia zajęć w związku z nieznanym "
                           f"typem zajęć {str(e)}")
 
@@ -532,6 +532,12 @@ def main(argv):
     # for lineno, line in enumerate(args.plik_wej):
     #     print(lineno)
     #     warzal.feed(line)
+
+    if args.nazwa_plik_wej.endswith(".pdf"):
+        # Try if mutool is available
+        subproc_result = subprocess.run("mutool -v", capture_output=True, text=True)
+
+
 
     if args.tryb.lower() == "warzal":
         warzalDict = warzal_PyQuery(args.nazwa_plik_wej, verbosity=args.v)
