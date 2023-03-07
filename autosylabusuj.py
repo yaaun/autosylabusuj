@@ -38,7 +38,12 @@ opisów przedmiotów.
 import argparse
 import configparser
 import csv
+import logging
+import os
+import os.path
+from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 
@@ -278,8 +283,6 @@ def warzal_PyQuery(nazwa_plik_wej, verbosity=0):
 
             # Sprawdź czy istnieje taki przedmiot w słowniku, aby uniknąć nadpisywania
             if nazwaPrzedm not in warZalicz:
-
-
                 warZalicz[nazwaPrzedm] = {"formaWeryfikacji": formaWeryf,
                                       "strona": stronaPocz,
                                       "sposobyRealizacji": sposobyGodziny_str,
@@ -290,7 +293,7 @@ def warzal_PyQuery(nazwa_plik_wej, verbosity=0):
         elif nazwaPrzedm and pgq.children("p:contains('Rodzaj zajęć')") and \
             pgq.children("p:contains('Formy zaliczenia')") and \
             pgq.children("p:contains('Warunki zaliczenia przedmiotu')"):
-            # Trafilismy na tabelę "Informacje rozszerzone", gdzie są (powinny być)
+            # Trafiliśmy na tabelę "Informacje rozszerzone", gdzie są (powinny być)
             # warunki zaliczenia przedmiotu.
             # Może to być jako `elif`, bo ta tabela nigdzie* nie występuje
             # (*nie widziałem żeby występowała) na tej samej stronie, co
@@ -372,18 +375,19 @@ TSV_PRAWDA = "TRUE"
 def skrocRodzajZaj(rodzajZaj):
     if rodzajZaj == "praktyki":
         return rodzajZaj
+    #elif rodzajZaj == ""
     else:
         return rodzajZaj[0:3]
 
 
-def warzal_formatWyjsciaTSV(warzalDict, args):
+def warzal_formatWyjsciaTSV(warzalDict, in_fname, out_fname=None):
     warzalDictRows = map(lambda kv: {"nazwa": kv[0], **kv[1]},
                          warzalDict.items())
 
-    if not args.o:
-        args.o = args.nazwa_plik_wej + "raport.tsv"
+    if not out_fname:
+        out_fname = in_fname + "_raport.tsv"
 
-    with open(args.o, "wt", newline="", encoding="utf-8") as csvReport:
+    with open(out_fname, "wt", newline="", encoding="utf-8") as csvReport:
         reportWriter = csv.DictWriter(csvReport, KolumnyTabeliRaportu,
                                       dialect="excel-tab", extrasaction="ignore")
         reportWriter.writeheader()
@@ -391,7 +395,7 @@ def warzal_formatWyjsciaTSV(warzalDict, args):
 
 
 
-def warzal_formatWyjsciaINI(warzalDict, args):
+def warzal_formatWyjsciaINI(warzalDict, in_fname, out_fname=None):
     confpars = configparser.ConfigParser(interpolation=None)
     confpars.optionxform = lambda x: x
 
@@ -405,10 +409,10 @@ def warzal_formatWyjsciaINI(warzalDict, args):
             if not nazwaWlasc.startswith("_"):
                 confpars[nazwaPrzedm][nazwaWlasc] = wartoscWlasc
 
-    if not args.o:
-        args.o = args.nazwa_plik_wej + "raport.ini"
+    if not out_fname:
+        out_fname = in_fname + "_raport.tsv"
 
-    with open(args.o, "wt", encoding="utf-8") as plikWyj:
+    with open(out_fname, "wt", encoding="utf-8") as plikWyj:
         confpars.write(plikWyj)
 
 
@@ -492,11 +496,11 @@ def plantab_copypastetxt(nazwaPliku, verbosity=0):
     return liniePrzedmDicts
 
 
-def plantab_formatWyjsciaTSV(liniePrzedmDicts, args):
+def plantab_formatWyjsciaTSV(liniePrzedmDicts, in_fname, out_fname=None):
     NazwyKolumn = ["Przedmiot", "Liczba godzin", "Punkty ECTS", "Forma weryfikacji",
                    "Kategoria"]
 
-    nazwaPlikuWyj = args.o or args.nazwa_plik_wej + ".plantab.tsv"
+    nazwaPlikuWyj = out_fname or (in_fname + "_plantab.tsv")
 
     with open(nazwaPlikuWyj, "wt", encoding="utf-8", newline="") as outf:
         writer = csv.DictWriter(outf, NazwyKolumn, dialect="excel-tab")
@@ -524,8 +528,15 @@ def main(argv):
                         "Tryb działania. Dopuszczalne wartości to: {'WarZal', "
                         "'PlanTab'} (rozmiar liter nie ma znaczenia); "
                         "domyślna wartość to 'WarZal'.")
+    parser.add_argument("--keep-html", action="store_true", default=False,
+                        help="Zachowaj pośrednio wygenerowany plik HTML. Ma znaczenie tylko gdy"
+                             "plik wejściowy jest w PDF.")
+
     #parser.add_argument("plik_wyj", type=argparse.FileType("wt"))
     args = parser.parse_args(argv[1:])
+
+    if args.v >= 2:
+        logging.basicConfig(level=logging.DEBUG)
 
     # warzal = WarunkiZaliczeniaParser()
 
@@ -533,21 +544,44 @@ def main(argv):
     #     print(lineno)
     #     warzal.feed(line)
 
-    if args.nazwa_plik_wej.endswith(".pdf"):
+    temp_html_fname = None
+    if args.nazwa_plik_wej.lower().endswith(".pdf"):
         # Try if mutool is available
-        subproc_result = subprocess.run("mutool -v", capture_output=True, text=True)
+        mutool_exe_path = shutil.which("mutool")
+        if mutool_exe_path is None:
+            raise RuntimeError("nie można znaleźć programu mutool, który jest niezbędny do przetwarzania plików PDF. "
+                               "Sprawdź swoje środowisko i/lub zainstaluj mutool z mupdf w miejscu, które będzie widoczne dla "
+                               "programu tzn. np. w tym samym katalogu lub w innym katalogu znajdującym się w PATH.")
+        else:
+            logging.info("using mutool at %s", mutool_exe_path)
 
+        subproc_result = subprocess.run([mutool_exe_path, "-v"],  text=True)
 
+        temp_html_fname = f"~{args.nazwa_plik_wej}.html"
+        if os.path.exists(temp_html_fname):
+            other_temp_fname = input("UWAGA: żeby kontynuować przetwarzanie PDF, niezbędny jest plik tymczasowy, jednak istnieje już "
+                    f"plik o sugerowanej nazwie '{temp_html_fname}'. Wpisz inną nazwę pliku lub wpisz 'y' lub '.' żeby nadpisać:")
+
+            if other_temp_fname not in {"y", "."}:
+                temp_html_fname = str(Path(other_temp_fname).with_suffix(".html"))
+
+        pdf2html_result = subprocess.run([mutool_exe_path, "draw", "-F", "html", "-o", temp_html_fname, args.nazwa_plik_wej], text=True)
+        args.nazwa_plik_wej = temp_html_fname
+
+    input_process_fname = temp_html_fname or args.nazwa_plik_wej
 
     if args.tryb.lower() == "warzal":
-        warzalDict = warzal_PyQuery(args.nazwa_plik_wej, verbosity=args.v)
+        warzalDict = warzal_PyQuery(input_process_fname, verbosity=args.v)
         if args.format.lower() in {"tsv", "csv"}:
-            warzal_formatWyjsciaTSV(warzalDict, args)
+            warzal_formatWyjsciaTSV(warzalDict, input_process_fname, args.o)
         elif args.format.lower() in {"ini"}:
-            warzal_formatWyjsciaINI(warzalDict, args)
+            warzal_formatWyjsciaINI(warzalDict, input_process_fname, args.o)
     elif args.tryb.lower() == "plantab":
-        liniePrzedmDicts = plantab_copypastetxt(args.nazwa_plik_wej, verbosity=args.v)
-        plantab_formatWyjsciaTSV(liniePrzedmDicts, args)
+        liniePrzedmDicts = plantab_copypastetxt(input_process_fname, verbosity=args.v)
+        plantab_formatWyjsciaTSV(liniePrzedmDicts, input_process_fname, args.o)
+
+    if temp_html_fname is not None:
+        os.remove(temp_html_fname) # clean up temp file
 
 if __name__ == "__main__":
     main(sys.argv)
