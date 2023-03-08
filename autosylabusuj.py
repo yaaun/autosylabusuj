@@ -91,10 +91,16 @@ def pgq_wyciagnijSposobyGodzinyRealizacji(pgq):
 
         bufor.append(pqelem.text())
 
+    # Uwaga: z powyższego możemy dostać całkiem ładny "bufor" zawierający linijki typu "wykład: 30" itp.,
+    # ale co do założenia nie polegamy na informacji w osobnych liniach.
+    # Dlatego poniżej wszystko jest składane do jednej linijki i dopiero potem przetwarzane.
     bufor = " ".join(bufor)
-    sposoby_i_godziny = re.findall(r"(\w{4,40}): (\d{1,3})", bufor) # Parsing typu 'klucz: wartość'
-    # Struktura sposoby_i_godziny będzie listą 2-tupli (par).
-    return dict(sposoby_i_godziny)
+    sposoby_i_godziny = re.findall(r"([\w ]{4,40}): (\d{1,3})", bufor) # Parsuje 'klucz ze spacjami: 30' -> ["klucz ze spacjami", "30"]
+    # Powyższe powinno być na tyle *robust*, że da sobie radę z ciągiem typu "wykład: 30 ćwiczenia: 30", przy czym
+    # pojawią się dodatkowe spacje w kluczu typu (" ćwiczenia", "30")
+
+    # Struktura sposoby_i_godziny będzie listą 2-tupli (par) - wymaga filtrowania zgodnie z tym co powyżej.
+    return dict(map(lambda pair: (pair[0].strip(), pair[1]), sposoby_i_godziny))
 
 def str_sposobyGodzinyRealizacji(sposoby_i_godziny):
     return ", ".join(map(lambda kv: f"{kv[0]}: {kv[1]}", sposoby_i_godziny.items()))
@@ -289,7 +295,7 @@ def warzal_PyQuery(nazwa_plik_wej, verbosity=0):
                                       "_sposobyRealizacji": sposobyGodziny}
             else:
                 print(f"Uwaga: powtórzył się sylabus przedmiotu o tej samej nazwie "
-                              f"'{nazwaPrzedm}'")
+                              f"'{nazwaPrzedm}' na stronie {nrStrony}")
         elif nazwaPrzedm and pgq.children("p:contains('Rodzaj zajęć')") and \
             pgq.children("p:contains('Formy zaliczenia')") and \
             pgq.children("p:contains('Warunki zaliczenia przedmiotu')"):
@@ -319,17 +325,22 @@ def warzal_PyQuery(nazwa_plik_wej, verbosity=0):
             for rodzajZaj, formaZal, warunkiZal in tabelaWarZal:
                 # Powinien już istnieć dict, żeby to wszystko umieścić.
 
+                # Zredukuj niestandardowe rodzaje zajęć do bardziej typowych
+                if rodzajZaj in SlownikRodzajowZajecDoRedukcji:
+                    rodzajZaj = SlownikRodzajowZajecDoRedukcji[rodzajZaj]
+
                 skrotRodzaju = skrocRodzajZaj(rodzajZaj)
 
                 # Sprawdź, czy istnieje taka forma zajęć wśród znanych.
-                if rodzajZaj in KolumnyTabeliRaportu:
+                if rodzajZaj in RodzajeZajec:
                     warZalicz[nazwaPrzedm][rodzajZaj] = TSV_PRAWDA
                     warZalicz[nazwaPrzedm][skrotRodzaju + "_formaZal"] = formaZal or "<!BRAK!>"
                     warZalicz[nazwaPrzedm][skrotRodzaju + "_warunkiZal"] = warunkiZal or "<!BRAK!>"
                 else:
-                    warZalicz[nazwaPrzedm]["inne uwagi"] = f"Napotkano nieznany rodzaj zajęć '{rodzajZaj}'. "\
+                    warZalicz[nazwaPrzedm]["inne uwagi"] = f"Napotkano nieznany rodzaj zajęć '{rodzajZaj}'. " \
                         f"Forma zaliczenia: '{formaZal}', warunki zaliczenia: '{warunkiZal}'"
-                    print(f"Uwaga: napotkano nieznany rodzaj zajęć '{rodzajZaj}' na stronie {pgq_wyciagnijNumerStrony(pgq)}")
+                    print(f"Uwaga: napotkano nieznany rodzaj zajęć '{rodzajZaj}' na stronie {pgq_wyciagnijNumerStrony(pgq)} "
+                          f"(przedmiot '{nazwaPrzedm}')")
 
         # To może być zarówno na tej samej stronie, co formy i warunki
         # zaliczenia, ale może równie dobrze wystąpić na osobnej stronie.
@@ -345,12 +356,15 @@ def warzal_PyQuery(nazwa_plik_wej, verbosity=0):
     # np. sposoby realizacji vs tabela z warunkami zaliczenia
     for nazwaPrzedm, przedmDict in warZalicz.items():
         for sposobRealiz in przedmDict["_sposobyRealizacji"]:
+            if sposobRealiz in SlownikRodzajowZajecDoRedukcji:
+                sposobRealiz = SlownikRodzajowZajecDoRedukcji[sposobRealiz]
+
             try:
                 if not przedmDict[sposobRealiz] == TSV_PRAWDA:
-                    print("Uwaga: niespójność sposobów realizacji przedmiotu z "
+                    print(f"Uwaga: niespójność sposobów realizacji przedmiotu '{nazwaPrzedm}' z "
                               "tabelą form zaliczenia zajęć")
             except KeyError as e:
-                print("Uwaga: niespójność sposobów realizacji przedmiotu z "
+                print(f"Uwaga: niespójność sposobów realizacji przedmiotu '{nazwaPrzedm}' z "
                           "tabelą form zaliczenia zajęć w związku z nieznanym "
                           f"typem zajęć {str(e)}")
 
@@ -369,13 +383,26 @@ KolumnyTabeliRaportu = ["strona", "nazwa", "formaWeryfikacji",
                         "warsztaty", "war_formaZal", "war_warunkiZal",
                         "praktyki", "praktyki_formaZal", "praktyki_warunkiZal",
                         "wymagania wstępne i dodatkowe", "inne uwagi"]
+RodzajeZajec = ["wykład",
+                "ćwiczenia",
+                "konwersatorium",
+                "seminarium",
+                "laboratoria",
+                "pracownia",
+                "projekt",
+                "warsztaty",
+                "praktyki"]
+SlownikRodzajowZajecDoRedukcji = {
+    "ćwiczenia komputerowe": "ćwiczenia",
+    "laboratoria komputerowe": "laboratoria"
+}
 OstrzezGdySylabusDluzszyNiz_strony = 4
 TSV_PRAWDA = "TRUE"
+TEMPFILE_PREFIX = "~"
 
 def skrocRodzajZaj(rodzajZaj):
     if rodzajZaj == "praktyki":
         return rodzajZaj
-    #elif rodzajZaj == ""
     else:
         return rodzajZaj[0:3]
 
@@ -385,7 +412,7 @@ def warzal_formatWyjsciaTSV(warzalDict, in_fname, out_fname=None):
                          warzalDict.items())
 
     if not out_fname:
-        out_fname = in_fname + "_raport.tsv"
+        out_fname = in_fname.lstrip(TEMPFILE_PREFIX) + "_raport.tsv"
 
     with open(out_fname, "wt", newline="", encoding="utf-8") as csvReport:
         reportWriter = csv.DictWriter(csvReport, KolumnyTabeliRaportu,
@@ -410,7 +437,7 @@ def warzal_formatWyjsciaINI(warzalDict, in_fname, out_fname=None):
                 confpars[nazwaPrzedm][nazwaWlasc] = wartoscWlasc
 
     if not out_fname:
-        out_fname = in_fname + "_raport.tsv"
+        out_fname = in_fname.lstrip(TEMPFILE_PREFIX) + "_raport.tsv"
 
     with open(out_fname, "wt", encoding="utf-8") as plikWyj:
         confpars.write(plikWyj)
@@ -500,7 +527,7 @@ def plantab_formatWyjsciaTSV(liniePrzedmDicts, in_fname, out_fname=None):
     NazwyKolumn = ["Przedmiot", "Liczba godzin", "Punkty ECTS", "Forma weryfikacji",
                    "Kategoria"]
 
-    nazwaPlikuWyj = out_fname or (in_fname + "_plantab.tsv")
+    nazwaPlikuWyj = out_fname or (in_fname.lstrip(TEMPFILE_PREFIX) + "_plantab.tsv")
 
     with open(nazwaPlikuWyj, "wt", encoding="utf-8", newline="") as outf:
         writer = csv.DictWriter(outf, NazwyKolumn, dialect="excel-tab")
@@ -557,7 +584,7 @@ def main(argv):
 
         subproc_result = subprocess.run([mutool_exe_path, "-v"],  text=True)
 
-        temp_html_fname = f"~{args.nazwa_plik_wej}.html"
+        temp_html_fname = f"{TEMPFILE_PREFIX}{args.nazwa_plik_wej}.html"
         if os.path.exists(temp_html_fname):
             other_temp_fname = input("UWAGA: żeby kontynuować przetwarzanie PDF, niezbędny jest plik tymczasowy, jednak istnieje już "
                     f"plik o sugerowanej nazwie '{temp_html_fname}'. Wpisz inną nazwę pliku lub wpisz 'y' lub '.' żeby nadpisać:")

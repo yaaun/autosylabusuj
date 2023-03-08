@@ -130,3 +130,7 @@ dmypy.json
 
 # Skrypty do uruchamiania narzędzia
 run_*.py
+
+# Sylabusy
+*.pdf
+*_raport.tsv
