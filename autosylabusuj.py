@@ -122,8 +122,8 @@ def wyciagnijStyleLeft(pqelem):
         Długość w jednostkach CSS, np. '123pt'.
 
     """
-    leftstr = re.search("left\\s*:\\s*(\d+(?:pt|px|cm));?", pqelem.attr.style)[1]
-    return leftstr
+    leftstr = re.search("left\\s*:\\s*(\d+(?:pt|px|cm));?", pqelem.attr.style)
+    return leftstr[1] if leftstr else None
 
 def cssDlwPt(cssdl):
     """
@@ -141,6 +141,9 @@ def cssDlwPt(cssdl):
         Długość w pt.
 
     """
+    if not cssdl: # Early exit if None or empty string
+        return None
+    
     unitSymbMatch = re.search("[a-z]{1,2}", cssdl)
     unitSymb = unitSymbMatch[0]
     preUnitDigits = cssdl[0:unitSymbMatch.start()]
