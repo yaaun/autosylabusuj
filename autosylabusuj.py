@@ -122,7 +122,7 @@ def wyciagnijStyleLeft(pqelem):
         Długość w jednostkach CSS, np. '123pt'.
 
     """
-    leftstr = re.search("left\\s*:\\s*(\d+(?:pt|px|cm));?", pqelem.attr.style)
+    leftstr = re.search("left\\s*:\\s*(\\d+(?:pt|px|cm)|\\d+\\.\\d+(?:pt|px|cm))", pqelem.attr.style)
     return leftstr[1] if leftstr else None
 
 def cssDlwPt(cssdl):
@@ -133,7 +133,7 @@ def cssDlwPt(cssdl):
     Parameters
     ----------
     cssdl : str
-        Długość absolutna dopuszczalna przez CSS, np. `
+        Długość absolutna dopuszczalna przez CSS, np. `43.0pt`
 
     Returns
     -------
