@@ -397,7 +397,9 @@ RodzajeZajec = ["wykład",
                 "praktyki"]
 SlownikRodzajowZajecDoRedukcji = {
     "ćwiczenia komputerowe": "ćwiczenia",
-    "laboratoria komputerowe": "laboratoria"
+    "laboratoria komputerowe": "laboratoria",
+    "pracownia komputerowa": "pracownia",
+    "proseminarium": "seminarium"
 }
 OstrzezGdySylabusDluzszyNiz_strony = 4
 TSV_PRAWDA = "TRUE"
